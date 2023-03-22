@@ -16,10 +16,10 @@ module.exports = defineConfig({
 
 ## 痛点分析
 
-webpack-chain（[github](https://github.com/Yatoo2018/webpack-chain/tree/zh-cmn-Hans)）这个开源库的目标就是提供一种新的方式创建和修改webpack配置，网上有不少地方吹这种链式写法本身带来的方便性，但是我怎么想都不是很接受，我感觉甚至为了写一个js对象还要承受更多的心智负担去学习这种写法的各种知识得不偿失。存在即合理，而且还被vue-cli等这么多项目所采纳，仔细思考了一下，我认为它的优势（所解决的webpack传统配置对象的痛点）：
+webpack-chain（[github](https://github.com/Yatoo2018/webpack-chain/tree/zh-cmn-Hans)）这个开源库的目标就是提供一种新的方式创建和修改webpack配置，网上有不少地方吹这种链式写法本身带来的方便性，但是我怎么想都不是很接受这个观点，我感觉甚至为了写一个js对象还要承受更多的心智负担去学习这种写法的各种知识得不偿失。存在即合理，而且还被vue-cli等这么多项目所采纳，仔细思考了一下，我认为它的优势在于（所解决的webpack传统配置对象的痛点）：
 
-* 相当于在输出`webpack`配置对象之前增加了一个编程式（写js逻辑）的预处理过程，即给`webpack`提供配置对象这个事情从“纯运行时”变成了“编译时+运行时”，这样做的好处就不言而喻了，就是编程本身带来的灵活性。
-* 对于vue-cli来说，本身已经内置了一个webpack的配置，如果接收用户输入再进行输入对象与原有对象的基于对象的合并操作的话，想来也是比较费劲的。所以webpack-chain可以被vue-cli所采纳，即不管是vue-cli内部的默认webpack配置还是用户输入，一直处理webpack-chain提供的config对象，最终转换config对象输出的配置对象（我没看vue-cli的源码，但是我猜是这样的...）
+* 相当于在输出`webpack`配置对象之前增加了一个编程式（写js逻辑）的预处理过程，即把给`webpack`提供配置对象这个事情从“纯运行时”变成了“编译时+运行时”，这样做的好处就不言而喻了，就是编程本身带来的灵活性。
+* 对于vue-cli来说，本身已经内置了一个webpack的配置，如果接收用户输入再进行输入对象与原有对象的基于对象的合并操作的话，想来也是比较费劲的。所以webpack-chain可以被vue-cli所采纳，即不管是vue-cli内部的默认webpack配置还是用户输入，一直处理webpack-chain提供的config对象，最终转换config对象输出webpack的配置对象（我没看vue-cli的源码，但是我猜是这样的...）
 
 
 
@@ -27,7 +27,7 @@ webpack-chain（[github](https://github.com/Yatoo2018/webpack-chain/tree/zh-cmn-
 
 
 
-## 常用配置链式语法实例
+## 常用配置实例
 
 参考文章：[Webpack-chain 从入门到深入](https://juejin.cn/post/6947851867422621733)
 
@@ -234,7 +234,7 @@ config.plugins.delete('HtmlWebpackPlugin');
 
 ### 部分源码
 
-webpack-chain提供的config对象以及他的大部分链式api，其实是对`Map`和`Set`数据结构的封装，大致浏览一下下面的`ChainMap.js`即可，后面咱再细说：
+webpack-chain提供的config对象以及他的大部分链式api，其实是基于对`Map`和`Set`数据结构的封装实现的，大致浏览一下下面的部分源码，后面咱根据例子再细说：
 
 `Chainable.js`：
 
@@ -243,12 +243,7 @@ module.exports = class {
   constructor(parent) {
     this.parent = parent;
   }
-
-  batch(handler) {
-    handler(this);
-    return this;
-  }
-
+	...
   end() {
     return this.parent;
   }
@@ -305,9 +300,7 @@ module.exports = class extends Chainable {
 }
 ~~~
 
-
-
-webpack-chain暴露给用户的config对象是怎么利用上面的`ChainMap`的呢：
+webpack-chain暴露给用户的config对象继承上面的`ChainMap`：
 
 `Config.js`：
 
@@ -357,6 +350,8 @@ module.exports = class extends ChainedMap {
 };
 ~~~
 
+下面以几个链式调用的例子梳理一下具体的逻辑（结合源码看解析）
+
 ### `add`方法
 
 以`entry`配置为例：
@@ -386,7 +381,7 @@ entry: {
 config.module
 .rule('babel')
 .test(/\.(js|jsx|mjs|ts|tsx)$/)
-.include // ---------- 注释如下 ----------
+.include // ---------- 此处注释如下 ----------
   .add(path.resolve(__dirname,  'src'))
   .end()
 .use('babel-loader')
@@ -394,9 +389,31 @@ config.module
   .options({
     'presets':['@babel/preset-env']
   })
+
+// 等同于以下 webpack 配置
+module: {
+  rules: [
+    {
+      test: /\.(js|jsx|mjs|ts|tsx)$/,
+      include: [
+        path.resolve(__dirname,  'src')
+      ],
+      use: [
+        {
+          loader: 'babel-loader',
+          options: {
+              presets: [
+                '@babel/preset-env'
+              ]
+            }
+        }
+      ]
+    }
+  ]
+}
 ~~~
 
-`include`肯定返回了一个`ChainSet`，然后调用`add`方法后“调用链终端”还是这个`ChainSet`，因为这个`rule`规则中后面还有一个`loader`，所以调用链上调用`end`方法，即返回上一级的`ChainMap`或者`ChainSet`，详见上面`Chainable.js`
+`include`肯定返回了一个`ChainSet`，然后调用`add`方法后“调用链终端”还是这个`ChainSet`，调用链终端的`ChainSet`调用`end`方法，即返回上一级（父级）的`ChainMap`或者`ChainSet`，`end`方法在`Chainable.js`
 
 
 
@@ -411,7 +428,7 @@ devServer.hot(true);
 devServer.set('hot', true);
 ```
 
-原理就是`devServer`是继承了`ChainMap`类的对象，创建`devServer`时调用了`ChainMap`的`extend`方法：
+如上代码的原理就是`devServer`是继承了`ChainMap`类的对象，创建`devServer`时调用了`ChainMap`的`extend`方法，`devServer`身上就多了若干个简写方法。
 
 ~~~js
 extend(methods) {
