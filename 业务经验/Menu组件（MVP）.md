@@ -10,9 +10,9 @@ Vue3简单实现一个MVP版本的Menu，需求分析：
 
 # 结构搭建
 
-MVP布局的话，单纯使用一个`ul`作为容器，里面每一项用`li`渲染即可，但这里出于多种考虑，外面再包一层`div.menu-container`，这样可以：
+MVP布局的话，单纯使用一个`ul`作为容器，`menuList`中的每一项用`li`渲染即可，但这里出于多种考虑，外面再包一层`div.menu-container`，这样的好处是：
 
-* 拓展导航栏的布局灵活性，易于拓展。例如我们一个横向的菜单导航，左边可能几个选项，右边也有几个选项，这时候可以在`div.container`里面再添加一个`ul`，实现选项集合`ul`的左右布局
+* 增加导航栏的布局灵活性，易于拓展。例如我们一个横向的菜单导航，左边可能几个选项，右边也有几个选项，这时候可以在`div.container`里面再添加一个`ul`，实现选项集合两个`ul`之间的左右布局
 * 作为一个vue组件，包裹一个`div`在开发者工具中看dom结构也更加清晰
 * ...
 
@@ -34,7 +34,7 @@ MVP布局的话，单纯使用一个`ul`作为容器，里面每一项用`li`渲
 .menu-container {
   .menu-ul {
     display: flex; // 布局属性: li标签一行排列
-    column-gap: 50px; // 样式属性: 控制选项间隙，在flex项目与项目之间添加间隙
+    column-gap: 50px; // 样式属性: 控制flex项目之间的间隙
     li {
       list-style-type: none; // 样式属性: 去除li标签的默认小圆点样式
       background-image: linear-gradient(90deg, red, green); // 样式属性: 方便观察
@@ -95,7 +95,7 @@ export default defineComponent({
 
 ![image-20230401175848060](./记录img/Menu数据动态渲染.png)
 
-但这里有个坑，如果在`setup`中通过`props.menuList`的形式访问`props`属性就会报错，我不知道具体是不是因为打包工具的原因，用`vue-cli`创建的基于`webpack`的项目上面的代码会TS报错：`Property 'menuList' does not exist on type 'Readonly<LooseRequired<Readonly<ExtractPropTypes<readonly string[] | Readonly<ComponentObjectPropsOptions<Record<string, unknown>>>>> & { ...; }>>'`，但是基于`vite`就没事。报错时如果想要在`js`代码中访问`props`，暂时我只想到了`(props as any).menuList`。针对这个错误真的很无奈...
+但这里有个坑，如果在`setup`中通过`props.menuList`的形式访问`props`属性可能会报错，我不知道具体是不是因为打包工具的原因，用`vue-cli`创建的基于`webpack`的项目上面的代码会TS报错：`Property 'menuList' does not exist on type 'Readonly<LooseRequired<Readonly<ExtractPropTypes<readonly string[] | Readonly<ComponentObjectPropsOptions<Record<string, unknown>>>>> & { ...; }>>'`，但是基于`vite`创建的项目就没事。报错时如果想要在`js`代码中访问`props`属性，暂时我只想到了`(props as any).menuList`。针对这个错误真的很无奈...
 
 
 
@@ -105,7 +105,7 @@ export default defineComponent({
 
 
 
-首先`Menu`组件中需要添加一个`props`属性，这个属性即为消费组件（父组件）中`v-model`绑定的值，即父组件中
+相当于给自定义组件添加`v-model`，首先`Menu`组件中需要添加一个`props`属性，这个属性即为消费组件（父组件）中`v-model:`冒号后面的值，即父组件
 
 `App.vue`：
 
@@ -141,7 +141,7 @@ props: {
 
 同时，给`li`标签绑定`Menu`导航切换时的回调函数`changeMenu`，并传入`index`，这样可以在`changeMenu`函数体中通过`props.menuList[index]`访问选中的新导航的值。
 
-`<Menu />`组件中`emit`数组中添加一个`"update:activeMenuItem"`事件，只需要调用`emit("update:activeMenuItem", value)`即相当于把父组件中通过`v-model:activeMenuItem="xxx"`绑定的`xxx`变量修改为`value`，这里`emit`是从`setup`函数第二个对象参数中解构出来的：
+`<Menu />`组件中`emits`数组中添加一个`"update:activeMenuItem"`事件，只需要调用`emit("update:activeMenuItem", value)`即相当于把父组件中通过`v-model:activeMenuItem="xxx"`绑定的`xxx`变量修改为`value`，这里`emit`是从`setup`函数第二个对象参数中解构出来的：
 
 ~~~vue
 <template>
@@ -194,7 +194,7 @@ export default defineComponent({
 
 
 
-这样已经完成了`Menu`组件对`v-model`的支持，可以在父组件中通过`watch`函数监听来测试`v-model`绑定的变量的变化，点击导航后`newValue`和`oldValue`都正常访问，功能实现是没有问题的。
+这样已经完成了`Menu`组件对`v-model`的支持，可以在父组件中通过`watch`函数监听来测试`v-model`绑定的变量的变化，点击导航后`newValue`和`oldValue`都正常访问，证明功能实现是没有问题的。
 
 当然一般都会给选中的导航添加一些样式，所以我们在`Menu`组件中维护一个被激活导航的标识变量`activeIndex`，`v-for`遍历生成`li`时给`index === activeIndex`的`li`添加样式。
 
@@ -202,7 +202,7 @@ export default defineComponent({
 
 # 实现父组件对导航切换事件的监听
 
-很简单，只需要在`Menu`组件中`emits`数组中添加一个`changeMenu`事件，然后在`Menu`组件内部的导航切换回调中执行`emit("changeMenu")`，即可触发父组件中的回调函数。
+很简单，只需要在`Menu`组件中`emits`数组中添加一个`changeMenu`事件，然后在`Menu`组件内部的导航切换回调中执行`emit("changeMenu")`，即可触发父组件中对`changeMenu`事件监听的回调函数。
 
 
 
