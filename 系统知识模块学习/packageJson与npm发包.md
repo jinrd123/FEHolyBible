@@ -112,6 +112,33 @@ files是一个文件数组，描述了将软件包作为依赖项安装时要包
 
 
 
+### exports
+
+用来指定脚本或子目录的别名。
+
+概念比较抽象，来个例子就ok了：
+
+首先`package.json`中配置如下
+
+~~~json
+"exports": {
+	"./submodule": "./src/submodule.js"
+}
+~~~
+
+`exports`里面的即为`别名(供用户使用): 实际路径`的键值对，如下
+
+~~~js
+import submodule from 'es-module-package/submodule';
+// 等价于加载 ./node_modules/es-module-package/src/submodule.js
+~~~
+
+解释一下：`exports`里面键值对里，不管是键还是值，都把`.`视作包名，类似于一种参照，上面配置`"./submodule": "./src/submodule.js"`的含义就是用户引入资源时如果路径写`(包名)/submodule`那么就转换为`(包名)/src/submodule.js`。
+
+关于这个配置，还有很多更高级的用法，可以参考[阮一峰老师的es6](https://es6.ruanyifeng.com/#docs/module-loader#package-json-%E7%9A%84-exports-%E5%AD%97%E6%AE%B5)
+
+
+
 ### bin
 
 工具性质的npm包，一定有`bin`字段，对外暴露脚本命令。
